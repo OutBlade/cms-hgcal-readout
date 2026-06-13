@@ -5,3 +5,7 @@ uproot>=5.3
 awkward>=2.6
 tqdm>=4.66
 pytest>=8.0
+
+# Desktop application
+customtkinter>=5.2
+pillow>=10.0
