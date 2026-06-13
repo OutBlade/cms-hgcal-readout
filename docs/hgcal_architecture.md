@@ -84,10 +84,10 @@ counting room:
 
 ---
 
-## Prototype Testing at IPE / KIT
+## Module Qualification Workflow
 
-The IPE group operates bench test stands for module qualification before
-installation at DESY/CERN. A typical qualification run:
+Bench test stands are used for module qualification before installation
+at DESY or CERN. A typical qualification run:
 
 1. **Threshold scan** -- sweep HGCROC internal DAC, measure hit rate per channel
    -> extract pedestal and ENC (this toolkit: `noise_analysis.py`)

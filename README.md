@@ -22,7 +22,7 @@
 [![Release](https://img.shields.io/github/v/release/OutBlade/cms-hgcal-readout?style=for-the-badge&label=Download&color=8A2BE2)](https://github.com/OutBlade/cms-hgcal-readout/releases/latest)
 
 **Decode raw ECON-D frames. Characterise HGCROC noise. Map hex-cell occupancy. Estimate lpGBT bandwidth.**  
-Built for bench qualification of CMS HGCAL prototype modules at IPE / KIT.
+Open-source toolkit for CMS HGCAL Phase-2 prototype qualification studies.
 
 [Download](#-download) &nbsp;|&nbsp; [Desktop App](#-desktop-application) &nbsp;|&nbsp; [Architecture](#readout-chain) &nbsp;|&nbsp; [Features](#features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
 
@@ -204,11 +204,11 @@ Estimates uplink utilisation as a function of pile-up and zero-suppression thres
 
 ```
 PU\Thr(fC)    0.25    0.50    1.00    2.00
-        50    62.1    41.8    19.2     5.8
-       140    88.4 (!)62.1    30.7     9.2
-       200   103.1 (!)81.3 (!)43.9    13.1
+        50    40.9    36.0    29.7    24.6
+       140    74.1    60.3    42.7    28.3
+       200    96.2 (!)76.5    51.4    30.8
 
-(!) marks utilisation > 80% -- link saturation risk
+(!) marks utilisation > 90% -- link near saturation
 ```
 
 </td>
@@ -382,7 +382,7 @@ cms-hgcal-readout/
 
 <div align="center">
 
-MIT License &nbsp;|&nbsp; Developed at KIT in the context of the IPE / EPS HGCAL readout activities  
+MIT License &nbsp;|&nbsp; CMS HGCAL Phase-2 Upgrade  
 Contact: barbarakallfelz94@gmail.com
 
 </div>
