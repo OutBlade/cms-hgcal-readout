@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Python tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate test vectors
+        run: |
+          python data/generate_test_vectors.py --n-events 200 --output data/test_run.bin
+          python data/generate_test_vectors.py --n-events 100 --corrupt-rate 0.1 --output data/test_corrupt.bin
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  firmware-sim:
+    name: VHDL simulation (GHDL)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GHDL
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y ghdl
+
+      - name: Analyse VHDL sources
+        run: |
+          ghdl -a firmware/rtl/lpgbt_rx.vhd
+          ghdl -a firmware/sim/tb_lpgbt_rx.vhd
+
+      - name: Elaborate and simulate
+        run: ghdl -r tb_lpgbt_rx --assert-level=failure --stop-time=100us
