@@ -23,11 +23,63 @@
 **Decode raw ECON-D frames. Characterise HGCROC noise. Map hex-cell occupancy. Estimate lpGBT bandwidth.**  
 Built for bench qualification of CMS HGCAL prototype modules at IPE / KIT.
 
-[Quick Start](#-quick-start) &nbsp;|&nbsp; [Architecture](#-readout-chain) &nbsp;|&nbsp; [Features](#-features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
+[Desktop App](#-desktop-application) &nbsp;|&nbsp; [Architecture](#readout-chain) &nbsp;|&nbsp; [Features](#features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
 
 <br/>
 
 </div>
+
+---
+
+## Desktop Application
+
+**HGCAL Lab** is a dark-themed desktop GUI for interactive analysis -- no hardware needed in demo mode.
+
+```bash
+pip install customtkinter pillow
+python app/hgcal_lab.py --demo
+```
+
+<br/>
+
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="screenshots/dashboard.png" width="100%"/>
+<br/><sub><b>Dashboard</b> &nbsp;—&nbsp; Live frame counter, CRC status, rolling event log</sub>
+</td>
+<td width="50%" align="center">
+<img src="screenshots/decoder.png" width="100%"/>
+<br/><sub><b>Frame Decoder</b> &nbsp;—&nbsp; ECON-D binary parser with per-hit charge and timing</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" align="center">
+<img src="screenshots/noise.png" width="100%"/>
+<br/><sub><b>Noise Analysis</b> &nbsp;—&nbsp; S-curve fit, ENC histogram, pedestal spread across 72 channels</sub>
+</td>
+<td width="50%" align="center">
+<img src="screenshots/occupancy.png" width="100%"/>
+<br/><sub><b>Occupancy Map</b> &nbsp;—&nbsp; Hit-rate rendered on the real HGCAL HD hexagonal wafer geometry</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center">
+<img src="screenshots/bandwidth.png" width="60%"/>
+<br/><sub><b>Bandwidth Budget</b> &nbsp;—&nbsp; lpGBT utilisation vs pile-up and zero-suppression threshold</sub>
+</td>
+</tr>
+</table>
+
+<br/>
+
+| Page | Key actions |
+|---|---|
+| Dashboard | Real-time frame counter, CRC error rate, scrolling event log |
+| Frame Decoder | Load binary file or demo data; filter by chip ID or CRC errors; inspect per-hit ADC, charge, ToA |
+| Noise Analysis | Load threshold-scan CSV or demo; S-curve fit per channel; ENC and pedestal histograms |
+| Occupancy Map | Hexagonal wafer heatmap with layer and event-count controls |
+| Bandwidth Budget | Interactive PU / threshold sliders; live utilisation curves for all standard thresholds |
 
 ---
 
@@ -86,10 +138,10 @@ for frame in dec.decode_stream(data):
         print(hit.u, hit.v, hit.charge_fC)
 ```
 
-- Header + payload CRC verified per frame  
-- Orbit / BX counter extraction  
-- Channel address -> hexagonal (u, v) mapping  
-- Charge (fC) and time (ns) properties  
+- Header + payload CRC verified per frame
+- Orbit / BX counter extraction
+- Channel address -> hexagonal (u, v) mapping
+- Charge (fC) and time (ns) properties
 
 </td>
 <td width="50%">
@@ -105,9 +157,9 @@ ENC       mean = 1568    std = 113   e-
 Dispersion (sigma RMS) = 4.2 DAC = 2.1 fC
 ```
 
-- Dead / noisy channel auto-flagging  
-- Matplotlib histograms with one flag  
-- CSV input, no custom format required  
+- Dead / noisy channel auto-flagging
+- Matplotlib histograms with one flag
+- CSV input, no custom format required
 
 </td>
 </tr>
@@ -122,9 +174,9 @@ python analysis/occupancy_map.py \
     --input hits.npy --layer 12 --output occ.png
 ```
 
-- Plasma colormap normalised to wafer mean  
-- Highlights hot / dead cells at a glance  
-- Works with simulated or real data  
+- Plasma colormap normalised to wafer mean
+- Highlights hot / dead cells at a glance
+- Works with simulated or real data
 
 </td>
 <td width="50%">
@@ -178,22 +230,21 @@ git clone https://github.com/OutBlade/cms-hgcal-readout
 cd cms-hgcal-readout
 pip install -r requirements.txt
 
-# 2. Generate synthetic test data (no hardware needed)
-python data/generate_test_vectors.py --n-events 1000 --output data/test_run.bin
+# 2. Launch the desktop app in demo mode (no hardware required)
+pip install customtkinter pillow
+python app/hgcal_lab.py --demo
 
-# 3. Decode and summarise
+# 3. Generate synthetic test data and decode from the CLI
+python data/generate_test_vectors.py --n-events 1000 --output data/test_run.bin
 python analysis/econ_decoder.py data/test_run.bin --summary
 
-# 4. Noise analysis from threshold scan
+# 4. Noise analysis from threshold scan CSV
 python analysis/noise_analysis.py data/threshold_scan_example.csv --plot
 
 # 5. Bandwidth budget table
 python analysis/bandwidth_budget.py --table
 
-# 6. Occupancy map (uses synthetic data if no input given)
-python analysis/occupancy_map.py --layer 12 --n-events 50000
-
-# 7. Run the test suite
+# 6. Run the test suite
 pytest tests/ -v
 ```
 
@@ -273,6 +324,9 @@ before integration into the full-system test at DESY and CERN.
 
 ```
 cms-hgcal-readout/
+├── app/
+│   └── hgcal_lab.py           HGCAL Lab desktop application (customtkinter + matplotlib)
+├── screenshots/               Application screenshots (used in this README)
 ├── analysis/
 │   ├── econ_decoder.py        ECON-D binary frame parser + CRC-8
 │   ├── trigger_primitive.py   ECON-T 37-bit trigger word decoder
