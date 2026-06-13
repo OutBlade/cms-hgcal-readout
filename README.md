@@ -9,8 +9,9 @@
  ██╔══██║██║   ██║██║     ██╔══██║██║
  ██║  ██║╚██████╔╝╚██████╗██║  ██║███████╗
  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝
- Prototype Readout Analysis Toolkit
 ```
+
+### Prototype Readout Analysis Toolkit
 
 <br/>
 
@@ -382,7 +383,6 @@ cms-hgcal-readout/
 
 <div align="center">
 
-MIT License &nbsp;|&nbsp; CMS HGCAL Phase-2 Upgrade  
-Contact: barbarakallfelz94@gmail.com
+MIT License &nbsp;|&nbsp; CMS HGCAL Phase-2 Upgrade
 
 </div>
