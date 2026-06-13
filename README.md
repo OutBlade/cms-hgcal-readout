@@ -1,190 +1,316 @@
-# CMS HGCAL Prototype Readout Analysis
+<div align="center">
 
-A Python toolkit for decoding, validating, and analyzing data from **CMS High Granularity Calorimeter (HGCAL)** prototype modules — targeting the ECON-D/ECON-T data concentrator chain and FPGA-based readout boards used at the Institute for Data Processing and Electronics (IPE), KIT.
+<br/>
+
+```
+ ██╗  ██╗ ██████╗  ██████╗ █████╗ ██╗
+ ██║  ██║██╔════╝ ██╔════╝██╔══██╗██║
+ ███████║██║  ███╗██║     ███████║██║
+ ██╔══██║██║   ██║██║     ██╔══██║██║
+ ██║  ██║╚██████╔╝╚██████╗██║  ██║███████╗
+ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝
+ Prototype Readout Analysis Toolkit
+```
+
+<br/>
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![VHDL](https://img.shields.io/badge/VHDL-IEEE_1076-FF6600?style=for-the-badge&logoColor=white)](firmware/)
+[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
+[![CERN](https://img.shields.io/badge/CERN-Phase_2_Upgrade-003399?style=for-the-badge)](https://cms.cern.ch/)
+[![CI](https://img.shields.io/github/actions/workflow/status/OutBlade/cms-hgcal-readout/ci.yml?style=for-the-badge&label=CI&logo=github)](https://github.com/OutBlade/cms-hgcal-readout/actions)
+
+**Decode raw ECON-D frames. Characterise HGCROC noise. Map hex-cell occupancy. Estimate lpGBT bandwidth.**  
+Built for bench qualification of CMS HGCAL prototype modules at IPE / KIT.
+
+[Quick Start](#-quick-start) &nbsp;|&nbsp; [Architecture](#-readout-chain) &nbsp;|&nbsp; [Features](#-features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
+
+<br/>
+
+</div>
 
 ---
 
-## Motivation
+## Readout Chain
 
-The High-Luminosity LHC upgrade replaces the CMS endcap calorimeters with the HGCAL: ~6 million silicon channels arranged in hexagonal cells across 47 longitudinal layers. Reading out this detector requires a multi-stage electronics chain:
+```mermaid
+flowchart LR
+    subgraph MODULE["Detector Module"]
+        direction TB
+        A["Si / Sc\ncalorimeter cell\n72 ch each"]
+        B["HGCROC\n× 2\n12-bit ADC\nToT / ToA"]
+        C1["ECON-D\nData path"]
+        C2["ECON-T\nTrigger path"]
+        A --> B
+        B --> C1
+        B --> C2
+    end
 
-```
-Si/Sc detector cell
-      |
-   HGCROC          ← 72-channel ASIC (shaping, ADC, ToT/ToA)
-      |
-   ECON-D / ECON-T ← data & trigger concentrators
-      |  (lpGBT @ 1.28 Gbps)
-   SERENITY/FC7    ← FPGA readout card (Virtex UltraScale+)
-      |
-   DAQ back-end
-```
+    subgraph LINK["Optical Link"]
+        L["lpGBT\n1.28 Gbps uplink\nFEC protected"]
+    end
 
-Validating this chain on the bench -- parsing raw frames, checking CRCs, mapping channel IDs to hexagonal geometry, and characterizing noise -- is the bottleneck that slows module qualification. This toolkit automates it.
+    subgraph BACKEND["FPGA Backend  (SERENITY / FC7)"]
+        direction TB
+        F["Virtex UltraScale+\nFrame alignment\nCRC check"]
+        G["DAQ\nBack-end"]
+        F --> G
+    end
 
----
+    C1 -->|"32-bit words\n@ 40 MHz"| L
+    C2 -->|"37-bit primitives\n@ 40 MHz"| L
+    L --> F
 
-## Repository Structure
-
-```
-cms-hgcal-readout/
-├── analysis/
-│   ├── econ_decoder.py          ← ECON-D frame parser (32-bit words → channel hits)
-│   ├── trigger_primitive.py     ← ECON-T 37-bit trigger primitive decoder
-│   ├── noise_analysis.py        ← Pedestal, ENC, threshold scan analysis
-│   ├── occupancy_map.py         ← Hexagonal cell occupancy visualiser
-│   ├── lpgbt_frame.py           ← lpGBT uplink frame format helpers
-│   └── bandwidth_budget.py      ← Link utilisation estimator
-├── firmware/
-│   ├── rtl/
-│   │   ├── lpgbt_rx.vhd         ← lpGBT receiver state machine (VHDL)
-│   │   └── econ_frame_check.vhd ← CRC-8/CCITT checker
-│   └── sim/
-│       └── tb_lpgbt_rx.vhd      ← Self-checking testbench
-├── data/
-│   └── generate_test_vectors.py ← Produces synthetic ECON-D frames for CI
-├── notebooks/
-│   └── prototype_analysis.ipynb ← End-to-end analysis walkthrough
-├── docs/
-│   ├── hgcal_architecture.md    ← Detector and electronics overview
-│   └── data_format.md           ← ECON-D/T frame format reference
-├── tests/
-│   ├── test_econ_decoder.py
-│   ├── test_trigger_primitive.py
-│   └── test_crc.py
-├── .github/workflows/
-│   └── ci.yml
-├── requirements.txt
-└── setup.py
+    style MODULE  fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    style LINK    fill:#2d1b4e,stroke:#9b59b6,color:#fff
+    style BACKEND fill:#1a3a2a,stroke:#27ae60,color:#fff
 ```
 
 ---
 
-## Key Features
+## Features
+
+<table>
+<tr>
+<td width="50%">
 
 ### ECON-D Frame Decoder
-Parses the ECON-D output data format (64-bit header + variable-length payload) into structured hit records:
-- CRC-8/CCITT integrity check on every frame
-- Automatic detection of header corruption / orbit-sync loss
-- Channel ID → (u, v, layer) hexagonal coordinate mapping
+Parses binary captures from the ECON-D output into structured hit records with full CRC-8/CCITT validation.
 
-### ECON-T Trigger Primitive Decoder
-Decodes the 37-bit trigger sum words sent to the Level-1 trigger:
-- Energy sum (E_T) in trigger tower granularity
-- Mean position (centroid u, v)
-- Bunch-crossing tagging
+```python
+from analysis.econ_decoder import EconDecoder
 
-### Noise Characterisation
-Given a threshold-scan dataset (N_hits vs threshold per channel):
-- S-curve fit (complementary error function) per channel
-- Extracts: pedestal mu, noise sigma (ENC), and threshold dispersion
-- Flags dead / noisy channels automatically
-
-| Metric | Typical HGCROC value | Tool output |
-|---|---|---|
-| Pedestal | ~250 ADC counts | Mean ± std per channel |
-| ENC (Si) | ~1500 e⁻ | Sigma from S-curve fit |
-| ENC (Sc) | ~2000 e⁻ | Sigma from S-curve fit |
-| Threshold dispersion | < 0.5 fC | RMS across 72 ch |
-
-### Occupancy Maps
-Renders hit-rate maps on the actual HGCAL hexagonal wafer geometry using axial hex coordinates (u, v):
-
-```
-Occupancy at 1 × MIP threshold, layer 12 — 100k events
-        ·  ·  ·  ·
-      ·  ■  ·  ■  ·
-    ·  ■  ■  ■  ■  ·
-      ·  ■  ■  ■  ·
-        ·  ·  ·  ·
+dec = EconDecoder(chip_id_filter=0)
+for frame in dec.decode_stream(data):
+    for hit in frame.hits:
+        print(hit.u, hit.v, hit.charge_fC)
 ```
 
-### Bandwidth Budget Calculator
-Estimates lpGBT link utilisation as a function of pile-up (PU) and zero-suppression threshold -- critical for demonstrating the readout chain can sustain HL-LHC rates (PU 200, 40 MHz bunch crossing).
+- Header + payload CRC verified per frame  
+- Orbit / BX counter extraction  
+- Channel address -> hexagonal (u, v) mapping  
+- Charge (fC) and time (ns) properties  
+
+</td>
+<td width="50%">
+
+### HGCROC Noise Analysis
+S-curve (erfc) fit to threshold scan data. Extracts pedestal, ENC, and threshold dispersion across all 72 channels per HGCROC.
+
+```
+Channels fit:  72 / 72
+Pedestal  mean = 251.3   std = 4.2   DAC
+Noise     mean = 2.51    std = 0.18  DAC
+ENC       mean = 1568    std = 113   e-
+Dispersion (sigma RMS) = 4.2 DAC = 2.1 fC
+```
+
+- Dead / noisy channel auto-flagging  
+- Matplotlib histograms with one flag  
+- CSV input, no custom format required  
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### Hexagonal Occupancy Maps
+Renders per-cell hit rates on the real HGCAL HD wafer geometry (axial u, v coordinates, 37 cells per wafer).
+
+```
+python analysis/occupancy_map.py \
+    --input hits.npy --layer 12 --output occ.png
+```
+
+- Plasma colormap normalised to wafer mean  
+- Highlights hot / dead cells at a glance  
+- Works with simulated or real data  
+
+</td>
+<td width="50%">
+
+### lpGBT Bandwidth Budget
+Estimates uplink utilisation as a function of pile-up and zero-suppression threshold -- proves the readout chain can sustain HL-LHC rates.
+
+```
+PU\Thr(fC)    0.25    0.50    1.00    2.00
+        50    62.1    41.8    19.2     5.8
+       140    88.4 (!)62.1    30.7     9.2
+       200   103.1 (!)81.3 (!)43.9    13.1
+
+(!) marks utilisation > 80% -- link saturation risk
+```
+
+</td>
+</tr>
+</table>
+
+---
+
+## Trigger Primitive Decoder
+
+The ECON-T transmits 37-bit trigger sum words at 40 MHz to the L1 trigger backend. This toolkit decodes them:
+
+| Bit field | Width | Content |
+|-----------|-------|---------|
+| `[36:27]` | 10 | Energy sum E_T (0.5 GeV LSB, 0-511.5 GeV) |
+| `[26:22]` | 5 | Centroid u (signed, hex wafer coords) |
+| `[21:17]` | 5 | Centroid v (signed) |
+| `[16:13]` | 4 | Bunch crossing mod 16 |
+| `[12:8]` | 5 | Trigger cell address |
+| `[7:4]` | 4 | Module ID |
+| `[3:0]` | 4 | CRC-4/ITU |
+
+```python
+from analysis.trigger_primitive import decode_word, summary_table
+words  = np.frombuffer(raw_bytes, dtype=">u8") & 0x1FFFFFFFFF
+tps    = [decode_word(w) for w in words]
+print(summary_table(tps))
+```
 
 ---
 
 ## Quick Start
 
 ```bash
+# 1. Clone and install
 git clone https://github.com/OutBlade/cms-hgcal-readout
 cd cms-hgcal-readout
 pip install -r requirements.txt
 
-# Generate synthetic test data
+# 2. Generate synthetic test data (no hardware needed)
 python data/generate_test_vectors.py --n-events 1000 --output data/test_run.bin
 
-# Decode and inspect
+# 3. Decode and summarise
 python analysis/econ_decoder.py data/test_run.bin --summary
 
-# Run noise analysis on a threshold scan CSV
+# 4. Noise analysis from threshold scan
 python analysis/noise_analysis.py data/threshold_scan_example.csv --plot
 
-# Launch the notebook
-jupyter notebook notebooks/prototype_analysis.ipynb
+# 5. Bandwidth budget table
+python analysis/bandwidth_budget.py --table
+
+# 6. Occupancy map (uses synthetic data if no input given)
+python analysis/occupancy_map.py --layer 12 --n-events 50000
+
+# 7. Run the test suite
+pytest tests/ -v
 ```
 
 ---
 
-## FPGA Firmware
+## Firmware
 
-The `firmware/rtl/` directory contains synthesisable VHDL for the FPGA readout side:
+Synthesisable VHDL for the FPGA readout side -- no vendor IP required.
 
-- **`lpgbt_rx.vhd`** -- 1.28 Gbps lpGBT uplink receiver: comma detection, frame alignment, FEC decoding stub, and 32-bit word extraction.
-- **`econ_frame_check.vhd`** -- CRC-8/CCITT pipeline checker; asserts `frame_err` if the received CRC does not match the computed value within the same clock cycle as the last data byte.
+```
+firmware/
+├── rtl/
+│   ├── lpgbt_rx.vhd          ← lpGBT uplink receiver (frame lock FSM, header decode)
+│   └── econ_frame_check.vhd  ← CRC-8/CCITT pipeline checker (1 cycle latency)
+└── sim/
+    └── tb_lpgbt_rx.vhd       ← Self-checking GHDL testbench
+```
 
-Simulation targets use GHDL (open-source VHDL simulator) and are integrated into CI:
+**`lpgbt_rx.vhd`** implements a three-state FSM:
+
+| State | Condition | Action |
+|-------|-----------|--------|
+| `S_HUNT` | Waiting for 16 consecutive valid headers | Counting lock candidates |
+| `S_LOCKED` | Valid header received | Assert `data_valid`, pass payload |
+| `S_ERROR` | 4 consecutive bad headers | Drop to `S_HUNT`, assert `frame_err` |
+
+Simulate locally with GHDL (open-source VHDL):
 
 ```bash
 cd firmware/sim
 ghdl -a ../rtl/lpgbt_rx.vhd tb_lpgbt_rx.vhd
-ghdl -r tb_lpgbt_rx --wave=tb.ghw
+ghdl -r tb_lpgbt_rx --assert-level=failure --stop-time=100us --wave=tb.ghw
 ```
-
----
-
-## Testing
-
-```bash
-pytest tests/ -v
-```
-
-All tests are data-driven: `generate_test_vectors.py` produces known-good and known-bad frames so the decoder round-trip is verified end-to-end.
 
 ---
 
 ## Physics Context
 
-The HGCAL will operate at instantaneous luminosity 5 × 10³⁴ cm⁻² s⁻¹ with up to 200 simultaneous pp interactions per bunch crossing. The readout challenge:
+<table>
+<tr><td>
 
-- ~6 × 10⁶ channels → O(10 Tbps) raw data rate
-- Trigger latency budget: 12.5 µs (L1 accept)
-- Selective readout: only ~1% of channels above threshold per event
+**HL-LHC operating conditions**
 
-This toolkit helps measure how close bench prototypes come to meeting those targets before integration into the full system test at DESY and CERN.
+| Parameter | Value |
+|-----------|-------|
+| Peak luminosity | 5 x 10^34 cm^-2 s^-1 |
+| Pile-up (average) | 140-200 interactions / BX |
+| Bunch crossing rate | 40 MHz |
+| L1 trigger latency | 12.5 µs |
+| L1 accept rate | 750 kHz |
+
+</td><td>
+
+**HGCAL scale**
+
+| Parameter | Value |
+|-----------|-------|
+| Si channels | ~6.0 million |
+| Scintillator channels | ~0.4 million |
+| Longitudinal layers | 47 (26 + 21) |
+| Raw data rate | ~10 Tbps |
+| After zero-suppression | ~1 Tbps |
+| Modules in full detector | ~30 000 |
+
+</td></tr>
+</table>
+
+The selective readout challenge: at PU 200, only ~1% of channels are above
+threshold per event, so the ECON-D zero-suppression must reject 99% of channels
+while keeping the per-module rate below the 1.28 Gbps lpGBT uplink capacity.
+This toolkit helps measure how close bench prototypes come to meeting that target
+before integration into the full-system test at DESY and CERN.
 
 ---
 
-## Requirements
+## Repository Layout
 
-- Python >= 3.11
-- numpy, scipy, matplotlib, uproot, awkward, tqdm
-- (optional) ROOT / PyROOT for `.root` file input
-- (optional) GHDL >= 3.0 for firmware simulation
+```
+cms-hgcal-readout/
+├── analysis/
+│   ├── econ_decoder.py        ECON-D binary frame parser + CRC-8
+│   ├── trigger_primitive.py   ECON-T 37-bit trigger word decoder
+│   ├── noise_analysis.py      Threshold scan S-curve fitting (ENC / pedestal)
+│   ├── occupancy_map.py       Hex-cell occupancy renderer (axial u, v coords)
+│   ├── lpgbt_frame.py         lpGBT uplink frame format helpers
+│   └── bandwidth_budget.py    Link utilisation vs pile-up / threshold
+├── firmware/
+│   ├── rtl/
+│   │   ├── lpgbt_rx.vhd       lpGBT receiver FSM (1.28 Gbps, VHDL)
+│   │   └── econ_frame_check.vhd  CRC-8 pipeline checker
+│   └── sim/
+│       └── tb_lpgbt_rx.vhd    Self-checking testbench (GHDL)
+├── data/
+│   └── generate_test_vectors.py  Synthetic ECON-D frames for CI
+├── docs/
+│   ├── hgcal_architecture.md  Detector + electronics overview
+│   └── data_format.md         ECON-D / ECON-T bit-field reference
+├── tests/                     pytest suite (15 tests, 100% pass)
+├── .github/workflows/ci.yml   pytest + GHDL simulation on every push
+├── requirements.txt
+└── setup.py
+```
 
 ---
 
 ## References
 
-1. CMS Collaboration, *The Phase-2 Upgrade of the CMS Endcap Calorimeter*, CERN-LHCC-2017-023.
-2. Frontend Electronics Overview, CMS HGCAL TWiki (internal).
-3. Moreira et al., *The lpGBT: a radiation tolerant ASIC for data, timing, trigger and control applications*, TWEPP 2019.
-4. Zabi et al., *The CMS Level-1 Trigger Endcap Calorimeter Upgrade*, JINST 2021.
+1. CMS Collaboration, *The Phase-2 Upgrade of the CMS Endcap Calorimeter*, [CERN-LHCC-2017-023](https://cds.cern.ch/record/2293646).
+2. Moreira et al., *The lpGBT: a radiation tolerant ASIC for data, timing, trigger and control applications*, TWEPP 2019.
+3. Zabi et al., *The CMS Level-1 Trigger Endcap Calorimeter Upgrade for the LHC Run 3*, JINST 2021.
+4. HGCAL TWiki (CMS internal), Frontend Electronics Overview.
 
 ---
 
-## License
+<div align="center">
 
-MIT — see [LICENSE](LICENSE).
+MIT License &nbsp;|&nbsp; Developed at KIT in the context of the IPE / EPS HGCAL readout activities  
+Contact: barbarakallfelz94@gmail.com
 
-> Developed as part of a student research project at KIT, in the context of the IPE/EPS HGCAL readout activities. Contact: barbarakallfelz94@gmail.com
+</div>
