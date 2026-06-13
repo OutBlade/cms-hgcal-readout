@@ -18,6 +18,20 @@ import time
 from collections import deque
 from pathlib import Path
 
+# Resolve analysis/ and data/ whether running from source or as a frozen bundle.
+def _setup_paths() -> Path:
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)          # type: ignore[attr-defined]
+    else:
+        base = Path(__file__).resolve().parent.parent
+    for sub in ("analysis", "data"):
+        p = str(base / sub)
+        if p not in sys.path:
+            sys.path.insert(0, p)
+    return base
+
+_BASE_DIR = _setup_paths()
+
 import customtkinter as ctk
 import matplotlib
 matplotlib.use("TkAgg")
