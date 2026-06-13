@@ -19,15 +19,33 @@
 [![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 [![CERN](https://img.shields.io/badge/CERN-Phase_2_Upgrade-003399?style=for-the-badge)](https://cms.cern.ch/)
 [![CI](https://img.shields.io/github/actions/workflow/status/OutBlade/cms-hgcal-readout/ci.yml?style=for-the-badge&label=CI&logo=github)](https://github.com/OutBlade/cms-hgcal-readout/actions)
+[![Release](https://img.shields.io/github/v/release/OutBlade/cms-hgcal-readout?style=for-the-badge&label=Download&color=8A2BE2)](https://github.com/OutBlade/cms-hgcal-readout/releases/latest)
 
 **Decode raw ECON-D frames. Characterise HGCROC noise. Map hex-cell occupancy. Estimate lpGBT bandwidth.**  
 Built for bench qualification of CMS HGCAL prototype modules at IPE / KIT.
 
-[Desktop App](#-desktop-application) &nbsp;|&nbsp; [Architecture](#readout-chain) &nbsp;|&nbsp; [Features](#features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
+[Download](#-download) &nbsp;|&nbsp; [Desktop App](#-desktop-application) &nbsp;|&nbsp; [Architecture](#readout-chain) &nbsp;|&nbsp; [Features](#features) &nbsp;|&nbsp; [Firmware](#-firmware) &nbsp;|&nbsp; [Docs](docs/)
 
 <br/>
 
 </div>
+
+---
+
+## Download
+
+Pre-built standalone binaries — no Python installation required.
+
+| Platform | Download | Architecture |
+|---|---|---|
+| **Windows ARM64** | [hgcal-lab-windows-arm64.exe](https://github.com/OutBlade/cms-hgcal-readout/releases/latest/download/hgcal-lab-windows-arm64.exe) | Native ARM64 (Snapdragon X, Surface Pro X) |
+| Windows x64 | [hgcal-lab-windows-x64.exe](https://github.com/OutBlade/cms-hgcal-readout/releases/latest/download/hgcal-lab-windows-x64.exe) | Intel / AMD 64-bit |
+| Linux x64 | [hgcal-lab-linux-x64](https://github.com/OutBlade/cms-hgcal-readout/releases/latest/download/hgcal-lab-linux-x64) | Ubuntu 22.04+ |
+
+**Linux:** `chmod +x hgcal-lab-linux-x64 && ./hgcal-lab-linux-x64`
+
+Binaries are built and attached automatically by [GitHub Actions](.github/workflows/release.yml) on every `v*` tag.  
+The ARM64 Windows binary is a genuine PE32+ ARM64 executable (machine type `0xAA64`), compiled with native ARM64 CPython 3.13.
 
 ---
 
